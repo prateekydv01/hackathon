@@ -63,6 +63,10 @@ const userSchema = new Schema(
                 required: true
             },
         },
+        aboutMe:{
+            type:String,
+            required:true
+        },
         refreshToken:{
             type:String
         }

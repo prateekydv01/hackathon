@@ -1,21 +1,47 @@
 
+import { useEffect, useState } from 'react'
 import './App.css'
+import { useDispatch } from 'react-redux'
+import { getCurrentUser } from './api'
+import { login,logout } from './store/authSlice'
+import {Footer,Header} from './components/index.js'
+import { Outlet } from 'react-router-dom'
 
 function App() {
+  const [loading,setLoading] = useState(true)
+  const dispatch = useDispatch()
+  console.log(loading)
 
-  return (
-    <>
-      <section class="bg-gradient-to-r from-[#667EEA] to-[#764BA2] text-white py-20 px-8 text-center">
-  <h1 class="text-4xl md:text-5xl font-bold">Find Services Around You</h1>
-  <p class="mt-4 text-lg">Connect with nearby doctors, tutors, and more in minutes.</p>
-  <button class="mt-6 bg-white text-[#667EEA] font-semibold px-6 py-3 rounded-full hover:bg-[#E0E7FF]">
-    Get Started
-  </button>
-</section>
-
-      
-    </>
+  useEffect(
+    ()=>{getCurrentUser()
+      .then((res)=>{
+        if(res?.data?.data){
+          dispatch(login({userData:res.data.data}))
+        }
+        else{
+          dispatch(logout())
+        }
+      })
+      .catch(() => dispatch(logout()))
+      .finally(() => setLoading(false))
+    },[]
   )
+
+  //conditional rendering
+  return !loading ? (
+    <>
+      <div className='flex flex-col min-h-screen'>
+        <Header />
+        
+          <main className='flex-1 bg-gradient-to-br from-white via-blue-50 to-indigo-100
+' >
+            
+            <Outlet/>
+          </main>
+        <Footer />
+      </div>
+    </>
+  ):null
 }
 
 export default App
