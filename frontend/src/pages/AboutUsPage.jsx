@@ -25,7 +25,7 @@ function AboutUs() {
         <div className='relative z-10 max-w-7xl mx-auto px-6 w-full'>
           <div className='text-center'>
             <div className='mb-8 transform hover:scale-105 transition-transform duration-300'>
-              <Logo />
+              {/* <Logo /> */}
             </div>
             
             <h1 className='text-5xl md:text-7xl lg:text-8xl font-black text-gray-800 mb-8 tracking-tight'>
@@ -57,15 +57,7 @@ function AboutUs() {
               </Link>
             </div>
 
-            {/* Scroll indicator */}
-            <div className='animate-fade-in-up' style={{ animationDelay: '0.8s' }}>
-              <div className='flex flex-col items-center text-gray-500'>
-                <span className='text-sm mb-2'>Learn more about us</span>
-                <div className='w-6 h-10 border-2 border-gray-300 rounded-full flex justify-center'>
-                  <div className='w-1 h-3 bg-gray-400 rounded-full mt-2 animate-bounce'></div>
-                </div>
-              </div>
-            </div>
+            
           </div>
         </div>
       </section>

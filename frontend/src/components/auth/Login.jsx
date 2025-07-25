@@ -2,7 +2,7 @@ import React,{useState} from 'react'
 import { Link,useNavigate } from 'react-router-dom'
 import { getCurrentUser, loginUser,logoutUser } from '../../api'
 import { login as authLogin } from '../../store/authSlice'
-import Logo from '../logo'
+import Logo from '../Logo'
 import { useDispatch } from 'react-redux'
 import {useForm} from "react-hook-form"
 
@@ -32,8 +32,8 @@ function Login() {
   return (
     <div className='flex justify-center my-20 w-full'>
       <div className='mx-auto  bg-white w-full max-w-lg p-10 rounded-2xl shadow-black/30 shadow-lg '>
-        <div className='mb-2 flex  justify-center'>
-          <span><Logo></Logo></span>
+        <div className='mb-2 flex  justify-center '>
+          {/* <span className='bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg p-2'><Logo></Logo></span> */}
         </div>
 
         <h1 className='text-center text-2xl font-extrabold text-gray-700 mb-1'>Login to Your Account</h1>

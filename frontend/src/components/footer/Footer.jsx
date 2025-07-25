@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import Logo from '../logo'
+import Logo from '../Logo'
 
 function Footer() {
   return (
@@ -43,15 +43,15 @@ function Footer() {
           <div>
             <h3 className='text-white font-bold mb-4'>Contact</h3>
             <div className='space-y-2 text-white/80'>
-              <p>📧 support@localconnect.com</p>
-              <p>📞 +91 98765 43210</p>
+              <p>📧 prateekyadav2023@gmail.com</p>
+              <p>📞 +91 79883 65150</p>
               <p>📍 Delhi, India</p>
             </div>
           </div>
         </div>
 
         <div className='border-t border-white/20 pt-8 text-center'>
-          <p className='text-white/80'>&copy; 2024 LocalConnect. Built for connecting communities.</p>
+          <p className='text-white/80'>&copy; 2025 HelpHive. Built for connecting communities.</p>
         </div>
       </div>
     </footer>

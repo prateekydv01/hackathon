@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {getCurrentUser, registerUser } from '../../api'
 import { login as authLogin } from '../../store/authSlice'
-import Logo from '../logo'
+import Logo from '../Logo'
 import { useDispatch } from 'react-redux'
 import { useForm } from "react-hook-form"
 import AddressAutocomplete from './AdressAutoComplete'
@@ -145,7 +145,6 @@ function Signup() {
     <div className='flex justify-center my-10 w-full'>
       <div className='mx-auto bg-white w-full max-w-2xl p-10 rounded-2xl shadow-black/30 shadow-lg'>
         <div className='mb-2 flex justify-center'>
-          <span><Logo /></span>
         </div>
 
         <h1 className='text-center text-2xl font-extrabold text-gray-700 mb-1'>Create Your Account</h1>
