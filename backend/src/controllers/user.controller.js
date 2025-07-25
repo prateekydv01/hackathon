@@ -5,6 +5,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js"
 import jwt from "jsonwebtoken";
 import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
+import { getCityFromCoordinates } from "../utils/geocoding.js"; // Add this import
 
 export const generateAccessAndRefreshToken = async (userId) => {
     try {
@@ -80,6 +81,15 @@ export const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Valid latitude and longitude are required");
     }
 
+    let cityAddress = 'Unknown Location';
+    try {
+        cityAddress = await getCityFromCoordinates(latitude, longitude);
+        console.log(`📍 Converted coordinates to: ${cityAddress}`);
+    } catch (geocodeError) {
+        console.error('Geocoding error during registration:', geocodeError);
+        // Continue with registration even if geocoding fails
+    }
+
     // Create user in database
     let user;
     try {
@@ -94,7 +104,8 @@ export const registerUser = asyncHandler(async (req, res) => {
             contactNumber: contactNumber.trim(),
             location: {
                 type: "Point",
-                coordinates: [longitude, latitude] // GeoJSON format: [lng, lat]
+                coordinates: [longitude, latitude] ,// GeoJSON format: [lng, lat]
+                 address: cityAddress
             },
             aboutMe: aboutMe?.trim() || ""
         })

@@ -62,6 +62,11 @@ const userSchema = new Schema(
                 type: [Number],
                 required: true
             },
+            address: {  // ✅ Add this field
+                type: String,
+                default: 'Unknown Location'
+            }
+
         },
         aboutMe:{
             type:String,

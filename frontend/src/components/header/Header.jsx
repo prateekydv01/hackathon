@@ -79,6 +79,7 @@ function Header() {
 
   // Helper function to get user's location
   const getUserLocation = () => {
+    console.log(currentUser)
     if (currentUser?.location?.address) {
       // Extract city from full address
       const addressParts = currentUser.location.address.split(',');
