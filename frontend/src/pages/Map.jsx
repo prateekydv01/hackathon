@@ -12,7 +12,7 @@ import {
   selectNearbyUsers,
   selectNearbyUsersLoading,
   selectNearbyUsersError,
-} from '../store/nearbyUsersSlice';
+} from '../store/nearbyUserSlice';
 
 /* ---------- helpers ---------- */
 const PROFESSION_COLORS = {
@@ -282,13 +282,7 @@ const MapPage = () => {
               </p>
 
               <div className='flex gap-2'>
-                <button
-                  onClick={() => {
-                    /* open chat modal etc. */
-                  }}
-                  className='flex-1 bg-green-500 text-white py-1 rounded-lg text-sm'>
-                  💬 Chat
-                </button>
+               
                 <button
                   onClick={() =>
                     selectedUser.contactNumber &&

@@ -320,7 +320,6 @@ export const logoutUser = asyncHandler(async (req, res) => {
     }
 })
 
-
 export const updateUserProfile = asyncHandler(async (req, res) => {
     const userId = req.user._id;
     const { fullName, contactNumber, profession, aboutMe, location } = req.body;
@@ -363,7 +362,6 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     );
 });
 
-// Get user profile by ID (for viewing other users)
 export const getUserProfile = asyncHandler(async (req, res) => {
     const { userId } = req.params;
 
@@ -377,12 +375,3 @@ export const getUserProfile = asyncHandler(async (req, res) => {
     );
 });
 
-export const getAllUsers = asyncHandler(async (req, res) => {
-    const users = await User.find({
-        _id: { $ne: req.user._id } // Exclude current user
-    }).select('fullName username avatar profession');
-
-    res.status(200).json(
-        new ApiResponse(200, users, "Users retrieved successfully")
-    );
-});

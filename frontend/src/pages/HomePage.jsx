@@ -12,7 +12,7 @@ import {
   selectNearbyUsersLoading, 
   selectNearbyUsersError,
   selectSelectedProfession 
-} from '../store/nearbyUsersSlice';
+} from '../store/nearbyUserSlice';
 
 function Home() {
   const navigate = useNavigate();
@@ -322,12 +322,7 @@ useEffect(() => {
                     
                     {/* Action Buttons */}
                     <div className='flex flex-col sm:flex-row gap-3 w-full lg:w-auto lg:flex-shrink-0'>
-                      <button 
-                        onClick={() => navigate(`/chat/${professional._id}`)}
-                        className='px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center justify-center gap-2'>
-                        <span className='text-lg'>💬</span>
-                        Chat Now
-                      </button>
+                     
                       
                       <button 
                         onClick={() => {

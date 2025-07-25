@@ -1,25 +1,24 @@
 import { Router } from "express";
-import {
-    createEmergency,
-    acceptEmergencyResponse,
-    getEmergencyRoute,
-    getNearbyEmergencies,
-    getUserEmergencies,
-    updateEmergencyStatus
-} from "../controllers/emergency.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
+import {
+  createEmergency,
+  acceptEmergency,
+  getNearbyEmergencies,
+  updateEmergencyStatus,  // Add this
+  getEmergencyById,       // Add this
+  getUserEmergencies      // Add this
+} from "../controllers/emergency.controller.js";
 
 const router = Router();
-
-// Apply auth middleware to all routes
 router.use(verifyJWT);
 
-// Emergency routes
-router.route("/create").post(createEmergency);
-router.route("/nearby").get(getNearbyEmergencies);
-router.route("/my-emergencies").get(getUserEmergencies);
-router.route("/:emergencyId/accept").post(acceptEmergencyResponse);
-router.route("/:emergencyId/route").get(getEmergencyRoute);
-router.route("/:emergencyId/status").put(updateEmergencyStatus);
+router.post("/create", createEmergency);
+router.post("/accept/:emergencyId", acceptEmergency);
+router.get("/nearby", getNearbyEmergencies);
+
+// Add these new routes
+router.patch("/update-status/:emergencyId", updateEmergencyStatus);
+router.get("/my-emergencies", getUserEmergencies);
+router.get("/:emergencyId", getEmergencyById);
 
 export default router;

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {upload} from "../middlewares/multer.middleware.js"
 import {verifyJWT} from "../middlewares/auth.middleware.js"
-import { changePassword, getAllUsers, getCurrentUser, getNearbyUser, getUserProfile, loginUser, logoutUser, registerUser, updateAccessToken, updateUserProfile } from "../controllers/user.controller.js";
+import { changePassword, getCurrentUser, getNearbyUser, getUserProfile, loginUser, logoutUser, registerUser, updateAccessToken, updateUserProfile } from "../controllers/user.controller.js";
 
 const router = Router()
 
@@ -18,7 +18,7 @@ router.route("/update-profile").put(
     updateUserProfile
 );
 router.route("/profile/:userId").get(verifyJWT,getUserProfile);
-router.route("/all").get(verifyJWT,getAllUsers);
+
 
 
 export default router

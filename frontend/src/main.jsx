@@ -13,12 +13,12 @@ import LoginPage from "./pages/LoginPage.jsx"
 import MapPage from './pages/Map.jsx'
 import SignupPage from './pages/SignupPage.jsx'
 import ProfilePage from './pages/profilePage.jsx'
-import ChatPage from './pages/ChatPage.jsx'
 
-// Emergency System Pages
-import Dashboard from './pages/Dashboard.jsx'
-import EmergencyHistory from './pages/EmergencyHistory.jsx'
-import NearbyEmergencies from './pages/NearbyEmergencies.jsx'
+
+// Emergency pages
+import EmergencyDashboard from './pages/EmergencyDashboard.jsx'
+import EmergencyPage from './pages/EmergencyPage.jsx'
+import RouteNavigationPage from './pages/RouteNavigationPage.jsx'
 
 import { Protected } from './components/index.js'
 
@@ -75,49 +75,40 @@ const router = createBrowserRouter([
           </Protected>
         ),
       },
-      // Emergency System Routes
+      
+      // Emergency routes
       {
         path: '/emergency',
         element: (
           <Protected authentication={true}>
-            <Dashboard />
+            <EmergencyDashboard />
           </Protected>
         ),
       },
       {
-        path: '/emergency/dashboard',
+        path: '/emergency/create',
         element: (
           <Protected authentication={true}>
-            <Dashboard />
+            <EmergencyPage />
           </Protected>
         ),
       },
       {
-        path: '/emergency/history',
+        path: '/emergency/:emergencyId',
         element: (
           <Protected authentication={true}>
-            <EmergencyHistory />
+            <EmergencyPage />
           </Protected>
         ),
       },
       {
-        path: '/emergency/nearby',
+        path: '/emergency/navigate/:emergencyId',
         element: (
           <Protected authentication={true}>
-            <NearbyEmergencies />
+            <RouteNavigationPage />
           </Protected>
         ),
       },
-      // In your main.jsx, add the chat route
-{
-  path: '/chat',
-  element: (
-    <Protected authentication={true}>
-      <ChatPage />
-    </Protected>
-  ),
-},
-
     ],
   },
 ])

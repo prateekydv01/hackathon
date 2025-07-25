@@ -233,8 +233,8 @@ const ProfilePage = () => {
 
                 {/* Location */}
                 <div className="flex items-center justify-center md:justify-start gap-1 text-purple-200">
-                  <span className="text-lg">📍</span>
-                  <span>{user.location?.address || 'Location not set'}</span>
+                  {/* <span className="text-lg">📍</span> */}
+                  {/* <span>{user.location?.address || 'Location not set'}</span> */}
                 </div>
               </div>
 
@@ -249,12 +249,7 @@ const ProfilePage = () => {
                   </button>
                 ) : (
                   <div className="flex gap-3">
-                    <button 
-                      onClick={() => navigate(`/chat/${user._id}`)}
-                      className="flex items-center gap-2 bg-green-500 text-white px-6 py-3 rounded-xl font-semibold hover:bg-green-600 transition-colors shadow-lg">
-                      <span className="text-lg">💬</span>
-                      Chat
-                    </button>
+                   
                     <button 
                       onClick={() => user.contactNumber && (window.location.href = `tel:${user.contactNumber}`)}
                       className="flex items-center gap-2 bg-white text-purple-600 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors shadow-lg">

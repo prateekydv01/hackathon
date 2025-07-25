@@ -49,12 +49,7 @@ function Header() {
       active: !authStatus,
       icon: "👤"
     },
-    {
-      name: "Chat",
-      slug: "/chat",
-      active: authStatus,
-      icon: "💬"
-    },
+    
     {
       name: "Map",
       slug: "/map",

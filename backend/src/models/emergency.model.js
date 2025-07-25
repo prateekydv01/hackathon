@@ -1,74 +1,51 @@
 import mongoose, { Schema } from "mongoose";
 
 const emergencySchema = new Schema(
-    {
-        userId: {
-            type: Schema.Types.ObjectId,
-            ref: 'User',
-            required: true
-        },
-        emergencyType: {
-            type: String,
-            enum: ['health', 'accident', 'fire', 'security', 'natural_disaster', 'other'],
-            required: true
-        },
-        customDescription: {
-            type: String,
-            required: function() {
-                return this.emergencyType === 'other';
-            },
-            maxlength: 150
-        },
-        severity: {
-            type: String,
-            enum: ['low', 'medium', 'high', 'critical'],
-            default: 'medium'
-        },
-        location: {
-            type: {
-                type: String,
-                enum: ['Point'],
-                required: true,
-                default: 'Point'
-            },
-            coordinates: {
-                type: [Number],
-                required: true
-            }
-        },
-        address: {
-            type: String,
-            required: true
-        },
-        status: {
-            type: String,
-            enum: ['active', 'in_progress', 'resolved', 'cancelled'],
-            default: 'active'
-        },
-        respondersAccepted: [{
-            userId: {
-                type: Schema.Types.ObjectId,
-                ref: 'User'
-            },
-            acceptedAt: {
-                type: Date,
-                default: Date.now
-            },
-            status: {
-                type: String,
-                enum: ['on_way', 'arrived', 'helping'],
-                default: 'on_way'
-            }
-        }],
-        notifiedUsers: [{
-            type: Schema.Types.ObjectId,
-            ref: 'User'
-        }]
+  {
+    sender: { type: Schema.Types.ObjectId, ref: "User", required: true },
+
+    emergencyType: {
+      type: String,
+      enum: ["accident", "health", "fire", "theft", "other"],
+      required: true,
     },
-    { timestamps: true }
+
+    customIssue: {
+      type: String,
+      required() {
+        return this.emergencyType === "other";
+      },
+    },
+
+    description: { type: String, required: true },
+
+    location: {
+      type: { type: String, enum: ["Point"], default: "Point" },
+      coordinates: { type: [Number], required: true }, // [lng, lat]
+    },
+
+    address: { type: String, required: true },
+
+    status: {
+      type: String,
+      enum: ["pending", "accepted", "resolved", "cancelled"],
+      default: "pending",
+    },
+
+    acceptedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    acceptedAt: Date,
+    resolvedAt: Date,
+
+    priority: {
+      type: String,
+      enum: ["low", "medium", "high", "critical"],
+      default: "medium",
+    },
+
+    isActive: { type: Boolean, default: true },
+  },
+  { timestamps: true }
 );
 
-emergencySchema.index({ location: '2dsphere' });
-emergencySchema.index({ status: 1, createdAt: -1 });
-
+emergencySchema.index({ location: "2dsphere" });
 export const Emergency = mongoose.model("Emergency", emergencySchema);

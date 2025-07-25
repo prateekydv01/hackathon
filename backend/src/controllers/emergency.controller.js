@@ -1,248 +1,277 @@
 import { Emergency } from "../models/emergency.model.js";
 import { User } from "../models/user.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import { ApiError } from "../utils/ApiError.js";
+import { getSocketInstance } from "../utils/socketInstance.js";
+import axios from "axios";
 
-// Create Emergency Alert
-const createEmergency = asyncHandler(async (req, res) => {
-    const { emergencyType, customDescription, severity, coordinates, address } = req.body;
-    
-    if (!coordinates || coordinates.length !== 2) {
-        throw new ApiError(400, "Valid coordinates are required");
-    }
+/* ---------- helpers ---------- */
+const geocode = async (lat, lng) => {
+  try {
+    const { data } = await axios.get(
+      `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lng}&key=${process.env.OPENCAGE_API_KEY}`
+    );
+    return data?.results?.[0]?.formatted || `${lat},${lng}`;
+  } catch {
+    return `${lat},${lng}`;
+  }
+};
 
-    const emergency = await Emergency.create({
-        userId: req.user._id,
-        emergencyType,
-        customDescription,
-        severity,
-        location: {
-            type: "Point",
-            coordinates: coordinates // [longitude, latitude]
-        },
-        address
+/* ---------- create emergency ---------- */
+export const createEmergency = asyncHandler(async (req, res) => {
+  const { emergencyType, customIssue, description, priority } = req.body;
+  const senderId = req.user._id;
+
+  if (!emergencyType || !description)
+    throw new ApiError(400, "Emergency type & description required");
+  if (emergencyType === "other" && !customIssue)
+    throw new ApiError(400, "Custom issue required for type 'other'");
+
+  const sender = await User.findById(senderId);
+  if (!sender?.location?.coordinates)
+    throw new ApiError(400, "Sender location missing");
+
+  const [lng, lat] = sender.location.coordinates;
+  const address = await geocode(lat, lng);
+
+  const emergency = await Emergency.create({
+    sender: senderId,
+    emergencyType,
+    customIssue: emergencyType === "other" ? customIssue : undefined,
+    description,
+    location: { type: "Point", coordinates: [lng, lat] },
+    address,
+    priority: priority || "medium",
+  });
+
+  // notify 2 km neighbors
+  const nearby = await User.find({
+    location: {
+      $near: { $geometry: { type: "Point", coordinates: [lng, lat] }, $maxDistance: 2000 },
+    },
+    _id: { $ne: senderId },
+  }).select("_id");
+
+  const io = getSocketInstance();
+  nearby.forEach((u) =>
+    io.to(u._id.toString()).emit("emergency_alert", {
+      emergency,
+      message: `${emergencyType.toUpperCase()} nearby`,
+    })
+  );
+
+  res
+    .status(201)
+    .json(new ApiResponse(201, { emergency, notifiedUsers: nearby.length }));
+});
+
+/* ---------- accept emergency ---------- */
+export const acceptEmergency = asyncHandler(async (req, res) => {
+  const { emergencyId } = req.params;
+  const acceptorId = req.user._id;
+
+  const emergency = await Emergency.findById(emergencyId);
+  if (!emergency) throw new ApiError(404, "Not found");
+  if (emergency.status !== "pending")
+    throw new ApiError(400, "Already accepted / closed");
+  if (emergency.sender.toString() === acceptorId.toString())
+    throw new ApiError(400, "Cannot accept your own emergency");
+
+  emergency.status = "accepted";
+  emergency.acceptedBy = acceptorId;
+  emergency.acceptedAt = new Date();
+  await emergency.save();
+
+  const acceptor = await User.findById(acceptorId);
+  const sender = await User.findById(emergency.sender);
+
+  const route = {
+    from: acceptor.location.coordinates,
+    to: emergency.location.coordinates,
+  };
+
+  getSocketInstance()
+    .to(emergency.sender.toString())
+    .emit("emergency_accepted", {
+      emergency,
+      acceptor: { fullName: acceptor.fullName, contactNumber: acceptor.contactNumber },
     });
 
-    // Find all users within 2km radius (excluding emergency creator)
-    const nearbyUsers = await User.find({
-        _id: { $ne: req.user._id },
-        location: {
-            $geoWithin: {
-                $centerSphere: [
-                    coordinates,
-                    2 / 6378.137 // 2km in radians
-                ]
-            }
-        }
-    }).select('_id fullName contactNumber avatar');
+  res.status(200).json(new ApiResponse(200, { emergency, route }));
+});
 
-    // Update emergency with notified users
-    emergency.notifiedUsers = nearbyUsers.map(user => user._id);
-    await emergency.save();
+/* ---------- list emergencies helpers kept same as earlier ---------- */
+export const getNearbyEmergencies = asyncHandler(async (req, res) => {
+  const { maxDistance = 2000 } = req.query;
+  const me = await User.findById(req.user._id);
+  const [lng, lat] = me.location.coordinates;
 
-    // Populate emergency data for response
-    const populatedEmergency = await Emergency.findById(emergency._id)
-        .populate('userId', 'fullName contactNumber avatar');
+  const list = await Emergency.find({
+    location: {
+      $near: { $geometry: { type: "Point", coordinates: [lng, lat] }, $maxDistance: +maxDistance },
+    },
+    sender: { $ne: req.user._id },
+    status: "pending",
+    isActive: true,
+  }).populate("sender", "fullName avatar contactNumber");
 
-    // Simple notification data (you can implement Socket.IO or push notifications later)
+  res.status(200).json(new ApiResponse(200, list));
+});
+
+/* ---------- update emergency status ---------- */
+export const updateEmergencyStatus = asyncHandler(async (req, res) => {
+  const { emergencyId } = req.params;
+  const { status } = req.body;
+  const userId = req.user._id;
+
+  // Validate status
+  const validStatuses = ['pending', 'accepted', 'resolved', 'cancelled'];
+  if (!status || !validStatuses.includes(status)) {
+    throw new ApiError(400, "Invalid status. Must be one of: pending, accepted, resolved, cancelled");
+  }
+
+  const emergency = await Emergency.findById(emergencyId);
+  if (!emergency) {
+    throw new ApiError(404, "Emergency not found");
+  }
+
+  // Check if user is authorized to update
+  const isAuthorized = emergency.sender.toString() === userId.toString() || 
+                      emergency.acceptedBy?.toString() === userId.toString();
+
+  if (!isAuthorized) {
+    throw new ApiError(403, "Not authorized to update this emergency");
+  }
+
+  // Prevent invalid status transitions
+  if (emergency.status === 'resolved' && status !== 'resolved') {
+    throw new ApiError(400, "Cannot change status of resolved emergency");
+  }
+
+  if (emergency.status === 'cancelled' && status !== 'cancelled') {
+    throw new ApiError(400, "Cannot change status of cancelled emergency");
+  }
+
+  // Update status and timestamps
+  const oldStatus = emergency.status;
+  emergency.status = status;
+
+  if (status === 'resolved' && oldStatus !== 'resolved') {
+    emergency.resolvedAt = new Date();
+  }
+
+  if (status === 'cancelled' && oldStatus !== 'cancelled') {
+    emergency.isActive = false;
+  }
+
+  await emergency.save();
+
+  // Get user details for notifications
+  const updatingUser = await User.findById(userId).select('fullName');
+
+  // Send socket notifications to relevant users
+  try {
+    const io = getSocketInstance();
+    
     const notificationData = {
-        emergencyId: emergency._id,
-        type: emergencyType,
-        description: customDescription || getEmergencyTypeDescription(emergencyType),
-        severity,
-        userInfo: {
-            name: req.user.fullName,
-            contact: req.user.contactNumber,
-            avatar: req.user.avatar
-        },
-        location: {
-            coordinates,
-            address
-        },
-        timestamp: emergency.createdAt,
-        notifiedUsersCount: nearbyUsers.length
+      emergency,
+      message: `Emergency status updated to: ${status}`,
+      updatedBy: updatingUser.fullName,
+      timestamp: new Date()
     };
 
-    res.status(201).json(
-        new ApiResponse(201, {
-            emergency: populatedEmergency,
-            notifications: notificationData
-        }, `Emergency alert created and ${nearbyUsers.length} users notified`)
-    );
+    // Notify sender if update is from acceptor
+    if (emergency.sender.toString() !== userId.toString()) {
+      io.to(emergency.sender.toString()).emit('emergency_status_update', notificationData);
+    }
+
+    // Notify acceptor if update is from sender
+    if (emergency.acceptedBy && emergency.acceptedBy.toString() !== userId.toString()) {
+      io.to(emergency.acceptedBy.toString()).emit('emergency_status_update', notificationData);
+    }
+  } catch (socketError) {
+    console.error('Socket notification error:', socketError);
+    // Continue without socket notifications if there's an error
+  }
+
+  // Populate the response
+  const updatedEmergency = await Emergency.findById(emergencyId)
+    .populate('sender', 'fullName username avatar contactNumber')
+    .populate('acceptedBy', 'fullName username avatar contactNumber');
+
+  res.status(200).json(
+    new ApiResponse(200, updatedEmergency, `Emergency status updated to ${status} successfully`)
+  );
 });
 
-// Accept Emergency Response
-const acceptEmergencyResponse = asyncHandler(async (req, res) => {
-    const { emergencyId } = req.params;
+/* ---------- get emergency by ID ---------- */
+export const getEmergencyById = asyncHandler(async (req, res) => {
+  const { emergencyId } = req.params;
+  const userId = req.user._id;
 
-    const emergency = await Emergency.findById(emergencyId);
-    if (!emergency) {
-        throw new ApiError(404, "Emergency not found");
-    }
+  const emergency = await Emergency.findById(emergencyId)
+    .populate('sender', 'fullName username avatar contactNumber')
+    .populate('acceptedBy', 'fullName username avatar contactNumber');
 
-    if (emergency.status !== 'active') {
-        throw new ApiError(400, "Emergency is no longer active");
-    }
+  if (!emergency) {
+    throw new ApiError(404, "Emergency not found");
+  }
 
-    // Check if user was notified about this emergency
-    const wasNotified = emergency.notifiedUsers.includes(req.user._id);
-    if (!wasNotified) {
-        throw new ApiError(403, "You were not notified about this emergency");
-    }
+  // Check if user has access to this emergency
+  const hasAccess = emergency.sender.toString() === userId.toString() || 
+                   emergency.acceptedBy?.toString() === userId.toString() ||
+                   emergency.status === 'pending'; // Allow viewing pending emergencies
 
-    // Check if user already accepted
-    const alreadyAccepted = emergency.respondersAccepted.some(
-        responder => responder.userId.toString() === req.user._id.toString()
-    );
+  if (!hasAccess) {
+    throw new ApiError(403, "Not authorized to view this emergency");
+  }
 
-    if (alreadyAccepted) {
-        throw new ApiError(400, "You have already accepted this emergency");
-    }
-
-    // Add responder
-    emergency.respondersAccepted.push({
-        userId: req.user._id
-    });
-
-    // Update status if this is the first responder
-    if (emergency.respondersAccepted.length === 1) {
-        emergency.status = 'in_progress';
-    }
-
-    await emergency.save();
-
-    const updatedEmergency = await Emergency.findById(emergencyId)
-        .populate('userId', 'fullName contactNumber')
-        .populate('respondersAccepted.userId', 'fullName avatar contactNumber');
-
-    res.status(200).json(
-        new ApiResponse(200, updatedEmergency, "Emergency response accepted")
-    );
+  res.status(200).json(
+    new ApiResponse(200, emergency, "Emergency details fetched successfully")
+  );
 });
 
-// Get Route to Emergency Location
-const getEmergencyRoute = asyncHandler(async (req, res) => {
-    const { emergencyId } = req.params;
-    
-    const emergency = await Emergency.findById(emergencyId)
-        .populate('userId', 'fullName contactNumber avatar');
-    
-    if (!emergency) {
-        throw new ApiError(404, "Emergency not found");
-    }
+/* ---------- get user's emergencies ---------- */
+export const getUserEmergencies = asyncHandler(async (req, res) => {
+  const userId = req.user._id;
+  const { status, type, page = 1, limit = 10 } = req.query;
 
-    // Check if user is a responder
-    const isResponder = emergency.respondersAccepted.some(
-        responder => responder.userId.toString() === req.user._id.toString()
-    );
+  const query = {
+    $or: [
+      { sender: userId },
+      { acceptedBy: userId }
+    ]
+  };
 
-    if (!isResponder) {
-        throw new ApiError(403, "You must accept the emergency first to get route");
-    }
+  if (status && status !== 'all') {
+    query.status = status;
+  }
 
-    const routeData = {
-        destination: {
-            coordinates: emergency.location.coordinates,
-            address: emergency.address
-        },
-        emergencyDetails: {
-            type: emergency.emergencyType,
-            severity: emergency.severity,
-            description: emergency.customDescription || getEmergencyTypeDescription(emergency.emergencyType),
-            createdAt: emergency.createdAt
-        },
-        contactInfo: {
-            name: emergency.userId.fullName,
-            phone: emergency.userId.contactNumber,
-            avatar: emergency.userId.avatar
-        }
-    };
+  if (type && type !== 'all') {
+    query.emergencyType = type;
+  }
 
-    res.status(200).json(
-        new ApiResponse(200, routeData, "Emergency route data retrieved")
-    );
+  const skip = (page - 1) * limit;
+
+  const emergencies = await Emergency.find(query)
+    .populate('sender', 'fullName username avatar contactNumber')
+    .populate('acceptedBy', 'fullName username avatar contactNumber')
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(parseInt(limit));
+
+  const total = await Emergency.countDocuments(query);
+
+  res.status(200).json(
+    new ApiResponse(200, {
+      emergencies,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / limit)
+      }
+    }, "User emergencies fetched successfully")
+  );
 });
-
-// Get Nearby Active Emergencies
-const getNearbyEmergencies = asyncHandler(async (req, res) => {
-    const { coordinates, radius = 2 } = req.query;
-    
-    if (!coordinates) {
-        throw new ApiError(400, "Coordinates are required");
-    }
-
-    const coords = coordinates.split(',').map(Number);
-    
-    const emergencies = await Emergency.find({
-        status: { $in: ['active', 'in_progress'] },
-        location: {
-            $geoWithin: {
-                $centerSphere: [coords, radius / 6378.137]
-            }
-        }
-    })
-    .populate('userId', 'fullName avatar')
-    .populate('respondersAccepted.userId', 'fullName')
-    .sort({ createdAt: -1 });
-
-    res.status(200).json(
-        new ApiResponse(200, emergencies, "Nearby emergencies retrieved")
-    );
-});
-
-// Get User's Emergency History
-const getUserEmergencies = asyncHandler(async (req, res) => {
-    const emergencies = await Emergency.find({
-        userId: req.user._id
-    })
-    .populate('respondersAccepted.userId', 'fullName avatar')
-    .sort({ createdAt: -1 });
-
-    res.status(200).json(
-        new ApiResponse(200, emergencies, "User emergencies retrieved")
-    );
-});
-
-// Update Emergency Status (for emergency creator)
-const updateEmergencyStatus = asyncHandler(async (req, res) => {
-    const { emergencyId } = req.params;
-    const { status } = req.body;
-
-    const emergency = await Emergency.findOne({
-        _id: emergencyId,
-        userId: req.user._id
-    });
-
-    if (!emergency) {
-        throw new ApiError(404, "Emergency not found or you're not authorized");
-    }
-
-    emergency.status = status;
-    await emergency.save();
-
-    res.status(200).json(
-        new ApiResponse(200, emergency, "Emergency status updated")
-    );
-});
-
-// Helper Functions
-const getEmergencyTypeDescription = (type) => {
-    const descriptions = {
-        health: "Medical Emergency",
-        accident: "Accident Occurred", 
-        fire: "Fire Emergency",
-        security: "Security Threat",
-        natural_disaster: "Natural Disaster"
-    };
-    return descriptions[type] || "Emergency Situation";
-};
-
-export {
-    createEmergency,
-    acceptEmergencyResponse,
-    getEmergencyRoute,
-    getNearbyEmergencies,
-    getUserEmergencies,
-    updateEmergencyStatus
-};
