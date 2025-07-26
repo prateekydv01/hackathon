@@ -37,14 +37,18 @@ Create `.env` file in the **backend** and **frontend** directory
 ### 3. Backend Setup
 
 cd backend
+
 npm i
+
 npm run dev
 
 
 ### 4. Frontend Setup
 
 cd frontend
+
 npm i
+
 npm run dev
 
 
