@@ -24,7 +24,8 @@ Built with React, Redux Toolkit, and Express.js, this responsive web app focuses
 
 ### 1. Clone the Repository
 
-git clone https://github.com/yourusername/your-project-name.git
+git clone https://github.com/yourusername/your-project-name.git 
+
 cd your-project-name
 
 
